@@ -1,0 +1,66 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://MultiHustle/ui/HUD/UISelectors.gd" type="Script" id=2]
+[ext_resource path="res://MultiHustle/ui/HUD/SelfSelect.gd" type="Script" id=3]
+[ext_resource path="res://MultiHustle/ui/HUD/OpponentSelect.gd" type="Script" id=4]
+
+[node name="MultiHustle_UISelectors" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 128.0
+margin_top = 68.0
+margin_right = -130.0
+margin_bottom = -266.0
+grow_horizontal = 2
+rect_pivot_offset = Vector2( 191, 0 )
+script = ExtResource( 2 )
+
+[node name="CharacterSelect" type="OptionButton" parent="."]
+anchor_right = 0.440945
+anchor_bottom = 0.769231
+margin_bottom = -20.0
+rect_pivot_offset = Vector2( 168, 0 )
+clip_text = true
+script = ExtResource( 3 )
+__meta__ = {
+"_edit_use_anchors_": true
+}
+
+[node name="CharacterSelect2" type="OptionButton" parent="."]
+anchor_left = 0.559055
+anchor_right = 1.0
+anchor_bottom = 0.769231
+margin_left = 1.52588e-05
+clip_text = true
+align = 2
+icon_align = 2
+script = ExtResource( 3 )
+__meta__ = {
+"_edit_use_anchors_": true
+}
+
+[node name="OpponentSelect" type="OptionButton" parent="."]
+anchor_top = 1.15
+anchor_right = 1.0
+anchor_bottom = 2.55
+margin_top = -6.9
+margin_right = -213.559
+margin_bottom = -23.3
+rect_pivot_offset = Vector2( 168, 0 )
+clip_text = true
+script = ExtResource( 4 )
+
+[node name="OpponentSelect2" type="OptionButton" parent="."]
+anchor_top = 1.15
+anchor_right = 1.0
+anchor_bottom = 2.55
+margin_left = 213.559
+margin_top = -6.9
+margin_bottom = -23.3
+clip_text = true
+align = 2
+icon_align = 2
+script = ExtResource( 4 )
+__meta__ = {
+"_edit_use_anchors_": true
+}
