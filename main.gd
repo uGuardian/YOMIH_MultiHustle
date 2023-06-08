@@ -8,6 +8,10 @@ var multiHustle_CharManager_res = preload("res://MultiHustle/CharManager.gd")
 var multiHustle_CharManager
 var multiHustle_UISelectors = preload("res://MultiHustle/ui/HUD/UISelectors.tscn")
 
+func _ready():
+	$"%P1ShowStyle".disconnect("toggled", self, "_on_show_style_toggled")
+	$"%P2ShowStyle".disconnect("toggled", self, "_on_show_style_toggled")
+
 func setup_game_deferred(singleplayer, data):
 	game = preload("res://Game.tscn").instance()
 	Network.ensure_script_override(game)
