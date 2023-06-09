@@ -94,6 +94,17 @@ func forfeit(id):
 	# TODO - Make this work with multiple players
 	.forfeit(id)
 
+func MultiHustle_get_color_by_index(index):
+	# TODO - Add more auto-colors
+	match index:
+		1:
+			return Color("aca2ff")
+		2:
+			return Color("ff7a81")
+		_:
+			return Color("ffffff")
+	return Color("ffffff")
+
 func start_game(singleplayer:bool, match_data:Dictionary):
 	set_vanilla_game_started(true)
 
@@ -151,14 +162,7 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 	for index in players.keys():
 		var player = players[index]
 		$Players.add_child(player)
-		# TODO - Add more auto-colors
-		match index:
-			1:
-				player.set_color(Color("aca2ff"))
-			2:
-				player.set_color(Color("ff7a81"))
-			_:
-				player.set_color(Color("ffffff"))
+		player.set_color(MultiHustle_get_color_by_index(index))
 		player.init()
 
 	if match_data.has("selected_styles"):
