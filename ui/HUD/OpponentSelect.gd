@@ -7,7 +7,7 @@ func PreConnect():
 func _item_selected(index):
 	._item_selected(index)
 	#var realIndex = index-1
-	get_game().players[parent.activeCharIndex].opponent = get_activeChar()
+	get_game().current_opponent_indicies[parent.activeCharIndex] = activeCharIndex
 	#var ghost_game = get_ghost_game()
 	#if is_instance_valid(ghost_game):
 		#ghost_game.players[parent.activeCharIndex].opponent = ghost_game.players[activeCharIndex]
