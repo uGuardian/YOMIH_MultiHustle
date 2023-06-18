@@ -15,7 +15,6 @@ func _init(modLoader = ModLoader):
 	var meta_data = get_meta_data(modLoader, "MultiHustle")
 	print("Initializing MultiHustle version %s" % meta_data.version)
 	modLoader.installScriptExtension("res://MultiHustle/characters/states/ThrowState.gd")
-	modLoader.installScriptExtension("res://MultiHustle/characters/BaseChar.gd")
 	modLoader.installScriptExtension("res://MultiHustle/mechanics/Hitbox.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ui/ActionSelector/ActionButtons.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ui/CSS/CharacterSelect.gd")

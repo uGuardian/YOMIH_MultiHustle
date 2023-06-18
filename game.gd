@@ -22,23 +22,35 @@ var turns_taken
 
 var needs_refresh = true
 
+var current_opponent_indicies = {}
+
+var player_colors = {}
+
+var color_rng:BetterRng = BetterRng.new()
+
 
 func copy_to(game:Game):
 	set_vanilla_game_started(true)
 
 	if not self.game_started:
 		return 
+	game.player_colors = player_colors.duplicate(true)
+	game.current_opponent_indicies = current_opponent_indicies.duplicate(true)
 	for index in players.keys():
-		players[index].copy_to(game.players[index])
+		var player_old = players[index]
+		player_old.copy_to(game.players[index])
+		var player_new = game.players[index]
 		match(index):
 			1:
-				game.p1 = game.players[index]
+				game.p1 = player_new
 			2:
-				game.p2 = game.players[index]
-		game.players[index].hp = players[index].hp
-	.clean_objects()
+				game.p2 = player_new
+		player_new.hp = player_old.hp
+		player_new.opponent = game.get_player(player_old.opponent.id)
+	clean_objects()
 	for object in game.objects:
-		object.free()
+		if is_instance_valid(object):
+			object.free()
 	for fx in game.effects:
 		if is_instance_valid(fx):
 			fx.free()
@@ -96,19 +108,25 @@ func forfeit(id):
 
 func MultiHustle_get_color_by_index(index):
 	# TODO - Add more auto-colors
-	match index:
-		1:
-			return Color("aca2ff")
-		2:
-			return Color("ff7a81")
-		_:
-			return Color("ffffff")
-	return Color("ffffff")
+	if !player_colors.has(index):
+		match index:
+			1:
+				player_colors[index] = Color("aca2ff")
+			2:
+				player_colors[index] = Color("ff7a81")
+			3:
+				player_colors[index] = Color("8effe9")
+			4:
+				player_colors[index] = Color("ddff8e")
+			_: # This SHOULD be deterministic, but I could see something going wrong.
+				player_colors[index] = Color(color_rng.randf(), color_rng.randf(), color_rng.randf())
+	return player_colors[index]
 
 func start_game(singleplayer:bool, match_data:Dictionary):
 	set_vanilla_game_started(true)
 
 	self.match_data = match_data
+	color_rng.seed = match_data.seed
 	
 	if match_data.has("spectating"):
 		self.spectating = match_data.spectating
@@ -181,7 +199,7 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 	
 			player.connect("undo", self, "set", ["undoing", true])
 			player.connect("super_started", self, "_on_super_started", [player])
-			.connect_signals(player)
+			connect_signals(player)
 	self.objs_map = {}
 	for index in players.keys():
 		self.objs_map[str("P", index)] = players[index]
@@ -212,13 +230,14 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 	self.current_tick = - 1
 	if not self.is_ghost:
 		if ReplayManager.playback:
-			.get_max_replay_tick()
+			get_max_replay_tick()
 		elif not match_data.has("replay"):
 			ReplayManager.init()
 		else :
-			.get_max_replay_tick()
-			if ReplayManager.frames[1].size() > 0 or ReplayManager.frames[2].size() > 0:
-				ReplayManager.playback = true
+			get_max_replay_tick()
+			for id in ReplayManager.frame_ids():
+				if ReplayManager.frames[id].size() > 0:
+					ReplayManager.playback = true
 
 	var height = 0
 	if match_data.has("char_height"):
@@ -246,6 +265,7 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 	for index in players.keys():
 		var player = players[index]
 		var evenModulo = index % 2
+		current_opponent_indicies[index] = evenModulo + 1
 		player.opponent = players[evenModulo + 1]
 		if evenModulo == 0:
 			player.set_facing(-1)
@@ -283,6 +303,19 @@ func update_data():
 			2:
 				p2_data = player.data
 
+func get_max_replay_tick():
+
+
+
+
+
+	max_replay_tick = 0
+	for id in ReplayManager.frame_ids():
+		for tick in ReplayManager.frames[id].keys():
+			if tick > max_replay_tick:
+				max_replay_tick = tick
+	return max_replay_tick
+
 func tick():
 	set_vanilla_game_started(true)
 
@@ -302,8 +335,10 @@ func tick():
 	if not singleplayer:
 		if not self.is_ghost:
 			Network.reset_action_inputs()
-
-	.clean_objects()
+	
+	process_opponents()
+	
+	clean_objects()
 	for object in self.objects:
 		if object.disabled:
 			continue
@@ -340,7 +375,7 @@ func tick():
 		player.tick()
 	
 	resolve_same_x_coordinate()
-	.initialize_objects()
+	initialize_objects()
 	for index in players.keys():
 		var data = players[index].data
 		player_datas[index] = data
@@ -370,7 +405,7 @@ func tick():
 	if self.is_ghost:
 		if not self.ghost_hidden:
 			if not self.visible and self.current_tick >= 0:
-				.show()
+				show()
 		return 
 
 	if not self.game_finished:
@@ -610,7 +645,7 @@ func apply_hitboxes_internal(playerhitboxpair):
 		px2.clash()
 		px1.add_penalty( - 25)
 		px2.add_penalty( - 25)
-		._spawn_particle_effect(preload("res://fx/ClashEffect.tscn"), clash_position)
+		_spawn_particle_effect(preload("res://fx/ClashEffect.tscn"), clash_position)
 	else :
 		if p1_hit:
 				if not (p1_throwing and not p1_hit_by.beats_grab):
@@ -886,8 +921,8 @@ func set_vanilla_game_started(toggle:bool):
 func _process(delta):
 	set_vanilla_game_started(true)
 
-	.update()
-	.super_dim()
+	update()
+	super_dim()
 	if self.camera.global_position.y > self.camera.limit_bottom - .get_viewport_rect().size.y / 2:
 		self.camera.global_position.y = self.camera.limit_bottom - .get_viewport_rect().size.y / 2
 	if self.camera.global_position.x > self.camera.limit_right - .get_viewport_rect().size.x / 2:
@@ -954,7 +989,7 @@ func _physics_process(_delta):
 		else :
 			call_deferred("simulate_one_tick")
 			if self.current_tick >= self.game_end_tick + 120:
-				.start_playback()
+				start_playback()
 	else :
 		if self.ghost_actionable_freeze_ticks > 0:
 			self.ghost_actionable_freeze_ticks -= 1
@@ -1006,10 +1041,10 @@ func _physics_process(_delta):
 		ReplayManager.resimulating = false
 		self.game_finished = false
 		emit_signal("simulation_continue")
-		.start_playback()
+		start_playback()
 
 	if self.spectating and not self.is_ghost and not ReplayManager.play_full:
-		for id in [1, 2]:
+		for id in ReplayManager.frame_ids():
 			for input_tick in ReplayManager.frames[id].keys():
 				if self.current_tick == input_tick - 1:
 	
@@ -1036,7 +1071,7 @@ func ghost_tick():
 
 	for i in range(simulate_frames):
 		if self.ghost_actionable_freeze_ticks == 0:
-			.simulate_one_tick()
+			simulate_one_tick()
 		if self.current_tick > 90:
 			emit_signal("ghost_finished")
 
@@ -1098,3 +1133,25 @@ func get_player_from_name(id:String):
 	for player in players.values():
 		if player.name == id:
 			return player
+
+func process_opponents():
+	for index in players:
+		var player = players[index]
+		if ReplayManager.playback:
+			var mh_data = ReplayManager.frames["MultiHustle"][index][current_tick]
+			if mh_data and "opponent" in mh_data:
+				current_opponent_indicies[index] = mh_data["opponent"]
+			# Fallback for old replays, will be gone next major version
+			var ticks = ReplayManager.frames[index]
+			if ticks.has(current_tick):
+				var input = ticks[current_tick]
+				if input:
+					var queued_extra = input["extra"]
+					if queued_extra and "Opponent" in queued_extra:
+						current_opponent_indicies[index] = queued_extra["Opponent"]
+		else:
+			ReplayManager.frames["MultiHustle"][index][current_tick] = {
+				"opponent":current_opponent_indicies[index]
+			}
+		
+		player.opponent = get_player(current_opponent_indicies[index])
