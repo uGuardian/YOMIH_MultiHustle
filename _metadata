@@ -5,7 +5,7 @@
   "friendly_name": "MultiHustle",
   "id": "12345",
   "incompatible": [
-
+    "yomiranked"
   ],
   "link": "",
   "name": "MultiHustle",
