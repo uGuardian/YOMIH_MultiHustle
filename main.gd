@@ -215,7 +215,7 @@ func stop_ghost():
 
 func _on_loaded_replay(match_data):
 	if !Network.has_char_loader():
-		_on_loaded_replay(match_data)
+		._on_loaded_replay(match_data)
 		return
 	load_replay_chars(match_data)
 	match_data["replay"] = true
