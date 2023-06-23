@@ -46,7 +46,9 @@ func copy_to(game:Game):
 			2:
 				game.p2 = player_new
 		player_new.hp = player_old.hp
-		player_new.opponent = game.get_player(player_old.opponent.id)
+	# Delayed opponent initialization just to be sure
+	for index in players.keys():
+		game.players[index].opponent = game.players[players[index].opponent.id]
 	clean_objects()
 	for object in game.objects:
 		if is_instance_valid(object):
@@ -135,6 +137,7 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 	# Implement variable key loader
 	for index in match_data.selected_characters.keys():
 		if multiHustle_CharManager.InitCharacter(self, index, match_data.selected_characters[index]) == false:
+			print_debug("Failed to load character")
 			return false
 	
 	for player in players.values():
@@ -1138,9 +1141,11 @@ func process_opponents():
 	for index in players:
 		var player = players[index]
 		if ReplayManager.playback:
-			var mh_data = ReplayManager.frames["MultiHustle"][index][current_tick]
-			if mh_data and "opponent" in mh_data:
-				current_opponent_indicies[index] = mh_data["opponent"]
+			var mh_frames = ReplayManager.frames["MultiHustle"][index]
+			if mh_frames.has(current_tick):
+				var mh_data = mh_frames[current_tick]
+				if mh_data and "opponent" in mh_data:
+					current_opponent_indicies[index] = mh_data["opponent"]
 			# Fallback for old replays, will be gone next major version
 			var ticks = ReplayManager.frames[index]
 			if ticks.has(current_tick):
@@ -1154,4 +1159,4 @@ func process_opponents():
 				"opponent":current_opponent_indicies[index]
 			}
 		
-		player.opponent = get_player(current_opponent_indicies[index])
+		player.opponent = players[current_opponent_indicies[index]]
