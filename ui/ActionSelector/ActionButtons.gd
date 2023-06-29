@@ -1,11 +1,16 @@
 extends "res://ui/ActionSelector/ActionButtons.gd"
 
 func get_extra()->Dictionary:
-	var extra = .get_extra()
-	# Got an error here once so I wanted to be sure
-	if is_instance_valid(fighter) and is_instance_valid(fighter.opponent):
-		extra["Opponent"] = fighter.opponent.id
-	return extra
+	if is_instance_valid(game):
+		# I now get opponent first, just to be sure, for some reason.
+		var extra = {
+			"opponent":game.current_opponent_indicies[fighter.id]
+		}
+		extra.merge(.get_extra())
+		return extra
+	else:
+		print_debug("MH Extra: game was somehow null")
+		return .get_extra()
 
 func GetRealID():
 	return fighter.id
@@ -25,7 +30,7 @@ func create_category(category, category_int = - 1):
 func on_action_submitted(action, data = null, extra = null):
 	active = false
 	extra = get_extra() if extra == null else extra
-	
+
 	var button_manager = Network.multihustle_action_button_manager
 	var left = button_manager.action_buttons_left
 	var right = button_manager.action_buttons_right
@@ -54,7 +59,7 @@ func update_select_button():
 
 func activate(refresh = true):
 	if visible and refresh:
-		return 
+		return
 
 	active = true
 	locked_in = false
@@ -100,8 +105,8 @@ func activate(refresh = true):
 
 	current_action = null
 	current_button = null
-	
-	
+
+
 	show()
 
 
@@ -110,29 +115,29 @@ func activate(refresh = true):
 
 
 
-	
+
 
 
 	if (not user_facing) or game.turns_taken[fighter.id] or fighter.game_over:
 		$"%SelectButton".disabled = true
 	else :
 		$"%SelectButton".disabled = game.spectating
-		
+
 	fighter_extra.hide()
 	update_buttons(refresh)
 
-	
+
 	if not fighter.busy_interrupt:
 		fighter_extra.show()
 		fighter_extra.show_behind_parent = true
 		fighter_extra.show_options()
-		
+
 	fighter_extra.reset()
-	
+
 	if fighter.dummy:
 		on_action_submitted("ContinueAuto", null)
 		hide()
-		
+
 	if fighter.will_forfeit:
 		on_action_submitted("Forfeit", null, null)
 		fighter.dummy = true
@@ -149,7 +154,7 @@ func activate(refresh = true):
 
 	$"%ReverseButton".show()
 	if not refresh:
-		return 
+		return
 	button_pressed = false
 	send_ui_action("Continue")
 	if user_facing:
