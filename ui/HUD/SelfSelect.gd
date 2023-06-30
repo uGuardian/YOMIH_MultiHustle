@@ -28,9 +28,13 @@ func InitUI(index:int):
 	InitHUD(index)
 
 func ReconnectButtons(realIndex):
-	var actionButtons = GetActionButtons()
-	actionButtons.disconnect("action_clicked", parent.main, "on_action_clicked")
-	actionButtons.connect("action_clicked", parent.main, "on_action_clicked", [realIndex])
+	# REVIEW - Why do I constantly disconnect and reconnect again?
+	# var actionButtons = GetActionButtons()
+	#actionButtons.disconnect("action_clicked", parent.main, "on_action_clicked")
+	#actionButtons.connect("action_clicked", parent.main, "on_action_clicked", [realIndex])
+	# TODO - Handle Opposite Buttons somehow
+	# actionButtons.opposite_buttons
+	pass
 
 func GetActionButtons():
 	match(id):

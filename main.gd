@@ -25,9 +25,9 @@ func setup_game_deferred(singleplayer, data):
 	game.connect("player_actionable", self, "_on_player_actionable")
 	game.connect("playback_requested", self, "_on_playback_requested")
 	game.connect("zoom_changed", self, "_on_zoom_changed")
-	
+
 	Network.game = game
-	
+
 	# This fallback will be removed next major game update
 	var user_data
 	var has_data = true
@@ -53,9 +53,9 @@ func setup_game_deferred(singleplayer, data):
 					name.erase(0, customPos+2)
 				name = "P"+str(index)+": "+name
 				user_data["p"+str(index)] = name
-	
+
 	if game.start_game(singleplayer, data) is bool:
-		return 
+		return
 	if data.has("turn_time"):
 		if not Network.undo or (data.has("chess_timer") and not data.chess_timer):
 			ui_layer.set_turn_time(data.turn_time, (data.has("chess_timer") and data.chess_timer))
@@ -109,7 +109,7 @@ func _start_ghost():
 func _start_ghost_internal(isRefresh = true):
 	if not $"%GhostWaitTimer".is_stopped():
 		yield ($"%GhostWaitTimer", "timeout")
-		return 
+		return
 	if not is_instance_valid(game) || not is_instance_valid(ghost_game):
 		isRefresh = false
 	if !isRefresh:
@@ -120,24 +120,24 @@ func _start_ghost_internal(isRefresh = true):
 		for afterImage in multiHustle_CharManager.afterImages.values():
 			afterImage.texture = null
 	if not $"%GhostButton".pressed:
-		return 
+		return
 	if ReplayManager.playback:
-		return 
+		return
 	if not is_instance_valid(game):
-		return 
+		return
 	if not game.prediction_enabled:
-		return 
-	
+		return
+
 	if !isRefresh:
 		ghost_game = preload("res://Game.tscn").instance()
 		Network.ensure_script_override(ghost_game)
 		#ghost_game.set_script(load("res://game.gd"))
 		ghost_game.is_ghost = true
 		$"%GhostViewport".add_child(ghost_game)
-		
+
 		ghost_game.multiHustle_CharManager = multiHustle_CharManager
 		multiHustle_CharManager.Create_GhostActions()
-		
+
 		ghost_game.start_game(true, match_data)
 		ghost_game.connect("ghost_finished", self, "ghost_finished")
 		ghost_game.connect("make_afterimage", self, "make_afterimage", [], CONNECT_DEFERRED)
@@ -160,17 +160,17 @@ func _start_ghost_internal(isRefresh = true):
 
 func make_afterimage():
 	if not $"%AfterimageButton".pressed:
-		return 
+		return
 	var img = $"%GhostViewport".get_texture().get_data()
-	
+
 	var img_dest = Image.new()
 	img_dest.create(img.get_width(), img.get_height(), false, img.get_format())
 	img_dest.blit_rect(img, Rect2(Vector2(), Vector2(img.get_width(), img.get_height())), Vector2.ZERO)
 	img_dest.flip_y()
-	
+
 	var tex = ImageTexture.new()
 	tex.create_from_image(img_dest)
-	
+
 	var texture_rect
 	for afterImage in multiHustle_CharManager.afterImages.values():
 		if afterImage.texture == null:
@@ -187,8 +187,8 @@ func MultiHustle_AddData():
 	var button_manager = Network.multihustle_action_button_manager
 	button_manager.main = self
 	button_manager.owner = owner
-	button_manager.action_buttons_left[1] = $"%P1ActionButtons"
-	button_manager.action_buttons_right[2] = $"%P2ActionButtons"
+	#button_manager.action_buttons_left[1] = $"%P1ActionButtons"
+	#button_manager.action_buttons_right[2] = $"%P2ActionButtons"
 	button_manager.bottombar = $"%BottomBar"
 	var all_buttons = $"%ActionButtons"
 	button_manager.vbox_container_left = all_buttons.get_child(0)
@@ -215,7 +215,7 @@ func stop_ghost():
 
 func _on_loaded_replay(match_data):
 	if !Network.has_char_loader():
-		_on_loaded_replay(match_data)
+		._on_loaded_replay(match_data)
 		return
 	load_replay_chars(match_data)
 	match_data["replay"] = true

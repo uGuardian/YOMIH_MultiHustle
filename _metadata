@@ -4,9 +4,6 @@
   "description": "Allows for more than 2 players",
   "friendly_name": "MultiHustle",
   "id": "12345",
-  "incompatible": [
-
-  ],
   "link": "",
   "name": "MultiHustle",
   "overwrites": false,
@@ -14,5 +11,5 @@
   "requires": [
     ""
   ],
-  "version": "0.5.0"
+  "version": "0.5.3"
 }
