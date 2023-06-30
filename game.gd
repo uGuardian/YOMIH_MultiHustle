@@ -29,7 +29,7 @@ var player_colors = {}
 var color_rng:BetterRng = BetterRng.new()
 
 
-func copy_to(game:Game):
+func copy_to(game):
 	set_vanilla_game_started(true)
 
 	if not self.game_started:
@@ -1147,12 +1147,8 @@ func process_opponents():
 					if "opponent" in queued_extra:
 						current_opponent_indicies[index] = queued_extra["opponent"]
 		else:
-			#MHFrames is now deprecated, it's back on extras again, will be gone next major version
-			var mh_frames = ReplayManager.frames["MultiHustle"][index]
-			if mh_frames.has(current_tick):
-				var mh_data = mh_frames[current_tick]
-				if mh_data and "opponent" in mh_data:
-					current_opponent_indicies[index] = mh_data["opponent"]
+			# Apparently current tick doesn't update until after objects... so I'm forced check one ahead locally.
+			var current_tick = self.current_tick+1
 			var ticks = ReplayManager.frames[index]
 			if ticks.has(current_tick):
 				var input = ticks[current_tick]
@@ -1161,10 +1157,8 @@ func process_opponents():
 					if queued_extra:
 						if "opponent" in queued_extra:
 							current_opponent_indicies[index] = queued_extra["opponent"]
-						# Fallback for old replays, will be gone next major version
-						elif "Opponent" in queued_extra:
-							current_opponent_indicies[index] = queued_extra["Opponent"]
 
+		# I probably don't need to do this every frame, but it doesn't really hurt.
 		player.opponent = players[current_opponent_indicies[index]]
 		# TODO - Add some sort of a way to force update current target selection
 		#if !is_ghost:
