@@ -15,19 +15,24 @@ var active_buttons_left_index:int
 var active_buttons_right
 var active_buttons_right_index:int
 
-var first_init:bool = false
 var last_active = {}
 
 func init_actionbuttons()->void:
 	var has_exclusions = Network.multiplayer_active
-	if !first_init:
-		var left_buttons = main.ui_layer.p1_action_buttons
-		var right_buttons = main.ui_layer.p2_action_buttons
+	var left_buttons
+	var right_buttons
+	if action_buttons_left.has(1) && is_instance_valid(action_buttons_left[1]):
+		left_buttons = action_buttons_left[1]
+	else:
+		left_buttons = main.ui_layer.p1_action_buttons
 		action_buttons_left[1] = left_buttons
+	if action_buttons_right.has(2) && is_instance_valid(action_buttons_right[2]):
+		right_buttons = action_buttons_right[2]
+	else:
+		right_buttons = main.ui_layer.p2_action_buttons
 		action_buttons_right[2] = right_buttons
-		custom_data_left = get_custom_data(left_buttons)
-		custom_data_right = get_custom_data(main.ui_layer.p2_action_buttons)
-		first_init = true
+	custom_data_left = get_custom_data(left_buttons)
+	custom_data_right = get_custom_data(right_buttons)
 
 	reset_buttons(false, has_exclusions)
 	reset_buttons(true, has_exclusions)
@@ -42,8 +47,11 @@ func init_actionbuttons()->void:
 
 	set_active_buttons(1, false)
 	set_active_buttons(2, true)
-	custom_data_left = get_custom_data(active_buttons_left)
-	custom_data_right = get_custom_data(active_buttons_right)
+	# TODO - Replace this with some real logic
+	for buttons in action_buttons_left.values():
+		buttons.opposite_buttons = active_buttons_right
+	for buttons in action_buttons_right.values():
+		buttons.opposite_buttons = active_buttons_left
 
 func setup_buttons(id:int, is_right:bool):
 	var action_buttons
@@ -59,17 +67,13 @@ func setup_buttons(id:int, is_right:bool):
 			var new_owner = set_custom_data(action_buttons, custom_data_left)
 			vbox_container_left.add_child(action_buttons)
 			action_buttons.owner = new_owner
-			action_buttons.opposite_buttons = action_buttons_left[1]
 		else:
 			var new_owner = set_custom_data(action_buttons, custom_data_right)
 			vbox_container_right.add_child(action_buttons)
 			action_buttons.owner = new_owner
-			action_buttons.opposite_buttons = action_buttons_right[2]
-		action_buttons.init(Global.current_game, id)
 		action_buttons.connect("visibility_changed", bottombar, "_on_action_buttons_visibility_changed")
 		action_buttons.connect("action_clicked", main, "on_action_clicked", [id])
 		group[id] = action_buttons
-
 	else:
 		action_buttons = group[id]
 
