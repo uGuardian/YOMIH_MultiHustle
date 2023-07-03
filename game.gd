@@ -65,6 +65,28 @@ func copy_to(game):
 			if not object.disabled:
 				var new_obj = load(object.filename).instance()
 				game.on_object_spawned(new_obj)
+				# Refuses to override, so done manually here. Thanks to Degritone for part of the code
+				new_obj.init()
+				var old_state_machine = object.get("state_machine") # Just making sure the object has a state machine
+				if old_state_machine != null:
+					var old_map = old_state_machine.states_map
+					var old_hitboxes = object.hitboxes
+					var new_state_machine = new_obj.state_machine
+					var new_map = new_state_machine.states_map
+					var new_hitboxes = new_obj.hitboxes
+					new_hitboxes.resize(old_hitboxes.size())
+					for key in new_map:
+						var state = new_map[key]
+						for old_hit in old_map[key].get_children():
+							if (old_hit is Hitbox and !state.has_node(old_hit.name)):
+								var new_hit = old_hit.duplicate()
+								new_hit.name = old_hit.name
+								state.add_child(new_hit)
+								# REVIEW - Possibly try to eliminate pointless rechecking
+								for index in old_hitboxes.size():
+									if old_hit == old_hitboxes[index]:
+										new_hitboxes[index] = new_hit
+
 				object.copy_to(new_obj)
 			else :
 				game.objs_map[str(game.objs_map.size() + 1)] = null
