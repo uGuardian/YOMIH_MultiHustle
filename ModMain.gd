@@ -19,6 +19,7 @@ func _init(modLoader = ModLoader):
 	modLoader.installScriptExtension("res://MultiHustle/main_fake.gd")
 	modLoader.installScriptExtension("res://MultiHustle/mechanics/Hitbox.gd")
 	modLoader.installScriptExtension("res://MultiHustle/characters/states/ThrowState.gd")
+	modLoader.installScriptExtension("res://MultiHustle/characters/swordandgun/states/LassoReel.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ui/ActionSelector/ActionButtons.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ui/CSS/CharacterSelect.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ui/HUD/HudLayer.gd")
