@@ -74,7 +74,8 @@ func copy_to(game):
 					var new_state_machine = new_obj.state_machine
 					var new_map = new_state_machine.states_map
 					var new_hitboxes = new_obj.hitboxes
-					new_hitboxes.resize(old_hitboxes.size())
+					if new_hitboxes.size() < old_hitboxes.size():
+						new_hitboxes.resize(old_hitboxes.size())
 					for key in new_map:
 						var state = new_map[key]
 						for old_hit in old_map[key].get_children():
