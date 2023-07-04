@@ -28,6 +28,10 @@ var player_colors = {}
 
 var color_rng:BetterRng = BetterRng.new()
 
+# Exclusively for use in hitbox handling
+# Handled this way to avoid constant resizing, assuming Godot isn't stupid
+var throws_consumed:Dictionary = {}
+
 
 func copy_to(game):
 	set_vanilla_game_started(true)
@@ -61,6 +65,29 @@ func copy_to(game):
 			if not object.disabled:
 				var new_obj = load(object.filename).instance()
 				game.on_object_spawned(new_obj)
+				# Refuses to override, so done manually here. Thanks to Degritone for part of the code
+				new_obj.init()
+				var old_state_machine = object.get("state_machine") # Just making sure the object has a state machine
+				if old_state_machine != null:
+					var old_map = old_state_machine.states_map
+					var old_hitboxes = object.hitboxes
+					var new_state_machine = new_obj.state_machine
+					var new_map = new_state_machine.states_map
+					var new_hitboxes = new_obj.hitboxes
+					if new_hitboxes.size() < old_hitboxes.size():
+						new_hitboxes.resize(old_hitboxes.size())
+					for key in new_map:
+						var state = new_map[key]
+						for old_hit in old_map[key].get_children():
+							if (old_hit is Hitbox and !state.has_node(old_hit.name)):
+								var new_hit = old_hit.duplicate()
+								new_hit.name = old_hit.name
+								state.add_child(new_hit)
+								# REVIEW - Possibly try to eliminate pointless rechecking
+								for index in old_hitboxes.size():
+									if old_hit == old_hitboxes[index]:
+										new_hitboxes[index] = new_hit
+
 				object.copy_to(new_obj)
 			else :
 				game.objs_map[str(game.objs_map.size() + 1)] = null
@@ -563,11 +590,44 @@ func apply_hitboxes(players):
 	for index in len(players):
 		var player = players[index]
 		players_w_hitboxes[index] = [player, player.get_active_hitboxes()]
+
+	for player in players:
+		throws_consumed[player] = null
+
+	# TODO - Prioritize overlaps to selected opponent
+	# TODO - Prioritize throw techs in consumption
 	for hitboxpair in get_all_pairs(players_w_hitboxes):
 		apply_hitboxes_internal(hitboxpair)
+	apply_hitboxes_objects(players)
 
-func apply_hitboxes_internal(playerhitboxpair):
-	# TODO - Figure out what happens if multiple hitboxes happen at once
+	"""
+	for obj in throws_consumed:
+		if throws_consumed[obj] != null:
+			for hitbox in obj.get_active_hitboxes():
+				if hitbox.throw:
+					hitbox.deactivate()
+					pass
+	"""
+	throws_consumed.clear()
+
+# Currently if someone gets caught in a tech crossfire, they just get teched too
+# Only use players for throwee, otherwise set throws_consumed directly
+func consume_throw_by(thrower, throwee, is_tech):
+	consume_throw_propagate(throwee)
+	if !is_tech:
+		throws_consumed[thrower] = throwee
+	else:
+		thrower.state_machine.queue_state("ThrowTech")
+		throws_consumed[thrower] = true
+func consume_throw_propagate(throwee):
+	var throwee_target = throws_consumed[throwee]
+	if throwee_target != null && throwee_target != true:
+		throwee_target.state_machine.queue_state("ThrowTech")
+		throws_consumed[throwee] = true
+		consume_throw_propagate(throwee_target)
+
+# throws_consumed is handled by instance, but may be passed by reference in the future
+func apply_hitboxes_internal(playerhitboxpair:Array):
 	var pair1 = playerhitboxpair[0]
 	var pair2 = playerhitboxpair[1]
 	var px1 = pair1[0]
@@ -652,27 +712,31 @@ func apply_hitboxes_internal(playerhitboxpair):
 	else :
 		if p1_hit:
 				if not (p1_throwing and not p1_hit_by.beats_grab):
-					p1_hit_by.hit(px1)
+					MH_wrapped_hit(p1_hit_by, px1)
 				else :
 					p1_hit = false
 		if p2_hit:
 				if not (p2_throwing and not p2_hit_by.beats_grab):
-					p2_hit_by.hit(px2)
+					MH_wrapped_hit(p2_hit_by, px2)
 				else :
 					p2_hit = false
 
 	if not p2_hit and not p1_hit:
 		if p2_throwing and p1_throwing and px1.current_state().throw_techable and px2.current_state().throw_techable:
-				px1.state_machine.queue_state("ThrowTech")
-				px2.state_machine.queue_state("ThrowTech")
+				#px1.state_machine.queue_state("ThrowTech")
+				#px2.state_machine.queue_state("ThrowTech")
+				consume_throw_by(px1, px2, true)
+				consume_throw_by(px2, px1, true)
 
 		elif p2_throwing and p1_throwing and not px1.current_state().throw_techable and not px2.current_state().throw_techable:
 			return
 
 		elif p1_throwing:
 			if px1.current_state().throw_techable and px2.current_state().throw_techable:
-				px1.state_machine.queue_state("ThrowTech")
-				px2.state_machine.queue_state("ThrowTech")
+				#px1.state_machine.queue_state("ThrowTech")
+				#px2.state_machine.queue_state("ThrowTech")
+				consume_throw_by(px1, px2, true)
+				consume_throw_by(px2, px1, true)
 				return
 			var can_hit = true
 			if px2.is_grounded() and not p2_hit_by.hits_vs_grounded:
@@ -684,15 +748,23 @@ func apply_hitboxes_internal(playerhitboxpair):
 
 
 			if can_hit:
-				p2_hit_by.hit(px2)
+				if throws_consumed[px1] != null:
+					return
+				MH_wrapped_hit(p2_hit_by, px2)
 				if p2_hit_by.throw_state:
 					px1.state_machine.queue_state(p2_hit_by.throw_state)
+					# NOTE - This allows for a character to have special MultiHustle grab handling
+					if p2_hit_by.throw_state.begins_with("MH_"):
+						return
+				consume_throw_by(px1, px2, false)
 				return
 
 		elif p2_throwing:
 			if px1.current_state().throw_techable and px2.current_state().throw_techable:
-				px1.state_machine.queue_state("ThrowTech")
-				px2.state_machine.queue_state("ThrowTech")
+				#px1.state_machine.queue_state("ThrowTech")
+				#px2.state_machine.queue_state("ThrowTech")
+				consume_throw_by(px1, px2, true)
+				consume_throw_by(px2, px1, true)
 				return
 			var can_hit = true
 			if px1.is_grounded() and not p1_hit_by.hits_vs_grounded:
@@ -704,27 +776,29 @@ func apply_hitboxes_internal(playerhitboxpair):
 
 
 			if can_hit:
-				p1_hit_by.hit(px1)
+				if throws_consumed[px2] != null:
+					return
+				MH_wrapped_hit(p1_hit_by, px1)
 				if p1_hit_by.throw_state:
 					px2.state_machine.queue_state(p1_hit_by.throw_state)
+					# NOTE - This allows for a character to have special MultiHustle grab handling
+					if p1_hit_by.throw_state.begins_with("MH_"):
+						return [px2, "MH_Grab"]
+				consume_throw_by(px2, px1, false)
 				return
 
+func apply_hitboxes_objects(players:Array):
 	var objects_to_hit = []
 	var objects_hit_each_other = false
 
 	for object in self.objects:
 		if object.disabled:
 			continue
-		for p in [px1, px2]:
+		for p in players:
+			# This shoould always be the same as the player index
+			var index = p.id
 			var p_hit_by
-			var isFriendly = false
-			for index in players.keys():
-				var player = players[index]
-				if p == player:
-					if object.id == index and not object.damages_own_team:
-						isFriendly = true
-						break
-			if isFriendly:
+			if object.id == index and not object.damages_own_team:
 				continue
 			var can_be_hit_by_melee = object.get("can_be_hit_by_melee")
 
@@ -735,11 +809,21 @@ func apply_hitboxes_internal(playerhitboxpair):
 				var hitboxes = object.get_active_hitboxes()
 				p_hit_by = get_colliding_hitbox(hitboxes, p.hurtbox)
 				if p_hit_by:
-					p_hit_by.hit(p)
+					if p_hit_by.throw || p_hit_by is ThrowBox:
+						if !throws_consumed.has(p_hit_by.host):
+							MH_wrapped_hit(p_hit_by, p)
+							consume_throw_by(p_hit_by.host, p, false)
+					else:
+						MH_wrapped_hit(p_hit_by, p)
 
 				var obj_hit_by = get_colliding_hitbox(p.get_active_hitboxes(), object.hurtbox)
 				if obj_hit_by and can_be_hit_by_melee:
-					obj_hit_by.hit(object)
+					if obj_hit_by.throw || obj_hit_by is ThrowBox:
+						if throws_consumed[p] == null:
+							MH_wrapped_hit(obj_hit_by, object)
+							throws_consumed[object] = p
+					else:
+						MH_wrapped_hit(obj_hit_by, object)
 
 
 
@@ -771,7 +855,29 @@ func apply_hitboxes_internal(playerhitboxpair):
 
 	if objects_hit_each_other:
 		for pair in objects_to_hit:
-			pair[0].hit(pair[1])
+			var hitbox = pair[0]
+			var target = pair[1]
+			if hitbox.throw || hitbox is ThrowBox:
+				if throws_consumed.has(hitbox.host):
+					continue
+				throws_consumed[hitbox.host] = target
+			MH_wrapped_hit(hitbox, target)
+
+func MH_wrapped_hit(hitbox, target):
+	var host = hitbox.host
+	var result
+	if not target.get("opponent") == null:
+		var opponentTemp = target.opponent
+		if host.is_in_group("Fighter"):
+			target.opponent = host
+		elif host.fighter_owner:
+			target.opponent = host.fighter_owner
+		result = hitbox.hit(target)
+		target.opponent = opponentTemp
+	else:
+		print_debug("MultiHustle: Couldn't set opponent for hitbox")
+		result = hitbox.hit(target)
+	return result
 
 func is_waiting_on_player():
 	set_vanilla_game_started(true)
