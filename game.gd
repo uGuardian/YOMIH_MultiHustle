@@ -711,12 +711,12 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 	else :
 		if p1_hit:
 				if not (p1_throwing and not p1_hit_by.beats_grab):
-					p1_hit_by.hit(px1)
+					MH_wrapped_hit(p1_hit_by, px1)
 				else :
 					p1_hit = false
 		if p2_hit:
 				if not (p2_throwing and not p2_hit_by.beats_grab):
-					p2_hit_by.hit(px2)
+					MH_wrapped_hit(p2_hit_by, px2)
 				else :
 					p2_hit = false
 
@@ -749,7 +749,7 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 			if can_hit:
 				if throws_consumed[px1] != null:
 					return
-				p2_hit_by.hit(px2)
+				MH_wrapped_hit(p2_hit_by, px2)
 				if p2_hit_by.throw_state:
 					px1.state_machine.queue_state(p2_hit_by.throw_state)
 					# NOTE - This allows for a character to have special MultiHustle grab handling
@@ -777,7 +777,7 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 			if can_hit:
 				if throws_consumed[px2] != null:
 					return
-				p1_hit_by.hit(px1)
+				MH_wrapped_hit(p1_hit_by, px1)
 				if p1_hit_by.throw_state:
 					px2.state_machine.queue_state(p1_hit_by.throw_state)
 					# NOTE - This allows for a character to have special MultiHustle grab handling
@@ -810,19 +810,19 @@ func apply_hitboxes_objects(players:Array):
 				if p_hit_by:
 					if p_hit_by.throw || p_hit_by is ThrowBox:
 						if !throws_consumed.has(p_hit_by.host):
-							p_hit_by.hit(p)
+							MH_wrapped_hit(p_hit_by, p)
 							consume_throw_by(p_hit_by.host, p, false)
 					else:
-						p_hit_by.hit(p)
+						MH_wrapped_hit(p_hit_by, p)
 
 				var obj_hit_by = get_colliding_hitbox(p.get_active_hitboxes(), object.hurtbox)
 				if obj_hit_by and can_be_hit_by_melee:
 					if obj_hit_by.throw || obj_hit_by is ThrowBox:
 						if throws_consumed[p] == null:
-							obj_hit_by.hit(object)
+							MH_wrapped_hit(obj_hit_by, object)
 							throws_consumed[object] = p
 					else:
-						obj_hit_by.hit(object)
+						MH_wrapped_hit(obj_hit_by, object)
 
 
 
@@ -860,7 +860,23 @@ func apply_hitboxes_objects(players:Array):
 				if throws_consumed.has(hitbox.host):
 					continue
 				throws_consumed[hitbox.host] = target
-			hitbox.hit(target)
+			MH_wrapped_hit(hitbox, target)
+
+func MH_wrapped_hit(hitbox, target):
+	var host = hitbox.host
+	var result
+	if not target.get("opponent") == null:
+		var opponentTemp = target.opponent
+		if host.is_in_group("Fighter"):
+			target.opponent = host
+		elif host.fighter_owner:
+			target.opponent = host.fighter_owner
+		result = hitbox.hit(target)
+		target.opponent = opponentTemp
+	else:
+		print_debug("MultiHustle: Couldn't set opponent for hitbox")
+		result = hitbox.hit(target)
+	return result
 
 func is_waiting_on_player():
 	set_vanilla_game_started(true)
