@@ -101,7 +101,7 @@ func activate(refresh = true):
 
 	$"%ReverseButton".set_disabled(true)
 	$"%ReverseButton".pressed = false
-	$"%FeintButton".pressed = false
+	$"%FeintButton".pressed = (Global.auto_fc or not user_facing) and fighter.feints > 0
 
 	current_action = null
 	current_button = null
@@ -155,6 +155,7 @@ func activate(refresh = true):
 	$"%ReverseButton".show()
 	if not refresh:
 		return
+	fighter.update_property_list()
 	button_pressed = false
 	send_ui_action("Continue")
 	if user_facing:

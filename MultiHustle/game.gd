@@ -312,7 +312,7 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 	if not ReplayManager.resimulating:
 		show_state()
 	if ReplayManager.playback and not ReplayManager.resimulating and not self.is_ghost:
-		yield (get_tree().create_timer(0.5 if not ReplayManager.replaying_ingame else 0.1), "timeout")
+		yield (get_tree().create_timer(0.5 if not ReplayManager.replaying_ingame else 0.25), "timeout")
 	self.game_started = true
 	if not self.is_ghost:
 		if SteamLobby.is_fighting():
@@ -381,7 +381,7 @@ func tick():
 			object.set_pos( - self.stage_width, pos.y)
 		elif pos.x > self.stage_width:
 			object.set_pos(self.stage_width, pos.y)
-		if self.has_ceiling and pos.y < - self.ceiling_height:
+		if self.has_ceiling and pos.y <= - self.ceiling_height:
 			object.set_y( - self.ceiling_height)
 			object.on_hit_ceiling()
 
@@ -632,8 +632,18 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 	var pair2 = playerhitboxpair[1]
 	var px1 = pair1[0]
 	var px2 = pair2[0]
+
 	var p1_hitboxes = pair1[1]
 	var p2_hitboxes = pair2[1]
+
+	var p1_pos = px1.get_pos()
+	var p2_pos = px2.get_pos()
+
+	for hitbox in p1_hitboxes:
+		hitbox.update_position(p1_pos.x, p1_pos.y)
+	for hitbox in p2_hitboxes:
+		hitbox.update_position(p2_pos.x, p2_pos.y)
+
 	var p2_hit_by = get_colliding_hitbox(p1_hitboxes, px2.hurtbox) if not px2.invulnerable else null
 	var p1_hit_by = get_colliding_hitbox(p2_hitboxes, px1.hurtbox) if not px1.invulnerable else null
 	var p1_hit = false
@@ -646,19 +656,19 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 			p1_hit = true
 		else :
 			p2_throwing = true
-			if not p1_hit_by.hits_otg and px1.is_otg():
-				p2_throwing = false
-			if px1.throw_invulnerable:
-				p2_throwing = false
+
+
+
+
 	if p2_hit_by:
 		if not (p2_hit_by is ThrowBox):
 			p2_hit = true
 		else :
 			p1_throwing = true
-			if not p2_hit_by.hits_otg and px2.is_otg():
-				p1_throwing = false
-			if px2.throw_invulnerable:
-				p1_throwing = false
+
+
+
+
 
 	var clash_position = Vector2()
 	var clashed = false
@@ -701,6 +711,7 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 				if valid_clash:
 					clashed = true
 					clash_position = p2_hitbox.get_overlap_center_float(p1_hitbox)
+
 					break
 
 	if clashed:
@@ -794,6 +805,15 @@ func apply_hitboxes_objects(players:Array):
 	for object in self.objects:
 		if object.disabled:
 			continue
+
+
+		var o_hitboxes = object.get_active_hitboxes()
+
+		var o_pos = object.get_pos()
+
+		for hitbox in o_hitboxes:
+			hitbox.update_position(o_pos.x, o_pos.y)
+
 		for p in players:
 			# This shoould always be the same as the player index
 			var index = p.id
@@ -824,6 +844,7 @@ func apply_hitboxes_objects(players:Array):
 							throws_consumed[object] = p
 					else:
 						MH_wrapped_hit(obj_hit_by, object)
+
 
 
 
@@ -1166,8 +1187,8 @@ func _physics_process(_delta):
 func ghost_tick():
 	set_vanilla_game_started(true)
 
-	for player in players.values():
-		player.actionable_label.hide()
+
+
 	var simulate_frames = 1
 	if self.ghost_speed == 1:
 		simulate_frames = 1 if self.ghost_tick % 4 == 0 else 0
@@ -1184,6 +1205,7 @@ func ghost_tick():
 		if self.current_tick > 90:
 			emit_signal("ghost_finished")
 
+		# REVIEW - This could probably be optimized
 		for index in players.keys():
 			var p1 = players[index]
 			if (p1.state_interruptable or p1.dummy_interruptable or p1.state_hit_cancellable) and not ghost_player_actionables[index]:
@@ -1201,15 +1223,19 @@ func ghost_tick():
 						ghost_p2_actionable = true
 				p1.set_ghost_colors()
 				if self.ghost_freeze:
-					self.ghost_actionable_freeze_ticks = 10
-					p1.actionable_label.show()
-					emit_signal("ghost_my_turn")
+					self.ghost_actionable_freeze_ticks = GHOST_ACTIONABLE_FREEZE_TICKS
 				else :
 					self.ghost_actionable_freeze_ticks = 1
+				if not p1.actionable_label.visible:
+					p1.actionable_label.show()
+					p1.actionable_label.text = "Ready\nin %sf" % p1.turn_frames
+				emit_signal("ghost_my_turn")
 				for index2 in players.keys():
 					var p2 = players[index2]
 					if p2.current_state().interruptible_on_opponent_turn or p2.feinting or .negative_on_hit(p2):
-						p2.actionable_label.show()
+						if not p2.actionable_label.visible:
+							p2.actionable_label.show()
+							p2.actionable_label.text = "Ready\nin %sf" % p2.turn_frames
 						ghost_player_actionables[index2] = true
 						match(index2):
 							1:
