@@ -32,6 +32,8 @@ var color_rng:BetterRng = BetterRng.new()
 # Handled this way to avoid constant resizing, assuming Godot isn't stupid
 var throws_consumed:Dictionary = {}
 
+var players_hittable_dic:Dictionary = {}
+
 
 func copy_to(game):
 	set_vanilla_game_started(true)
@@ -40,8 +42,16 @@ func copy_to(game):
 		return
 	game.player_colors = player_colors.duplicate(true)
 	game.current_opponent_indicies = current_opponent_indicies.duplicate(true)
+
+
+
+
+
+
 	for index in players.keys():
 		var player_old = players[index]
+		player_old.chara.copy_to(game.players[index].chara)
+		game.players[index].update_data()
 		player_old.copy_to(game.players[index])
 		var player_new = game.players[index]
 		match(index):
@@ -93,6 +103,7 @@ func copy_to(game):
 				game.objs_map[str(game.objs_map.size() + 1)] = null
 	game.camera.limit_left = self.camera.limit_left
 	game.camera.limit_right = self.camera.limit_right
+
 
 func _on_super_started(ticks, player):
 	set_vanilla_game_started(true)
@@ -195,8 +206,12 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 		player.has_ceiling = has_ceiling
 		player.name = str("P", index)
 		player.logic_rng = BetterRng.new()
-		# Vanilla does this twice, not sure why
-		player.logic_rng.seed = hash(match_data.seed + index - 1)
+		player.logic_rng_static = BetterRng.new()
+		var rng_seed = hash(match_data.seed + index - 1)
+		player.logic_rng.seed = rng_seed
+		player.logic_rng_seed = rng_seed
+		player.logic_rng_static.seed = rng_seed
+		player.logic_rng_static_seed = rng_seed
 		player.id = index
 		player.is_ghost = self.is_ghost
 		player.set_gravity_modifier(self.global_gravity_modifier)
@@ -318,7 +333,11 @@ func start_game(singleplayer:bool, match_data:Dictionary):
 		if SteamLobby.is_fighting():
 			SteamLobby.on_match_started()
 
-
+	if match_data.has("starting_meter"):
+		var meter_amount = p1.fixed.round(p1.fixed.mul(str(Fighter.MAX_SUPER_METER), match_data.starting_meter))
+		for index in players.keys():
+			var player = players[index]
+			player.gain_super_meter(meter_amount)
 
 func update_data():
 	set_vanilla_game_started(true)
@@ -461,10 +480,10 @@ func tick():
 		if player.hp <= 0:
 			player.game_over = true
 
-func resolve_port_priority():
+func resolve_port_priority(id = false):
 	set_vanilla_game_started(true)
 
-	var priority = 0
+	# TODO: Figure out how to implement id properly
 	var order = []
 	var playerAdded = {}
 	for index in players.keys():
@@ -472,22 +491,23 @@ func resolve_port_priority():
 	var pairs = get_all_pairs(players.keys())
 	for p in self.priorities:
 		for pair in pairs:
+			var priority = 0
 			var index1 = pair[0]
 			var index2 = pair[1]
 			var p1 = players[index1]
 			var p2 = players[index2]
-			if playerAdded[index1] == true or playerAdded[index2] == true:
-				break
 			var p1_state = p1.current_state()
 			var p2_state = p2.current_state()
 			priority = p.call_func(p1_state, p2_state)
 			match priority:
 				1:
-					order.append(p1)
-					playerAdded[index1] = true
+					if !playerAdded[index1]:
+						order.append(p1)
+						playerAdded[index1] = true
 				2:
-					order.append(p2)
-					playerAdded[index2] = true
+					if !playerAdded[index2]:
+						order.append(p2)
+						playerAdded[index2] = true
 	for index in players.keys():
 		if playerAdded[index] == false:
 			order.append(players[index])
@@ -593,6 +613,7 @@ func apply_hitboxes(players):
 
 	for player in players:
 		throws_consumed[player] = null
+		players_hittable_dic[player] = true
 
 	# TODO - Prioritize overlaps to selected opponent
 	# TODO - Prioritize throw techs in consumption
@@ -608,6 +629,7 @@ func apply_hitboxes(players):
 					hitbox.deactivate()
 					pass
 	"""
+	# This is to clear out any objects that got added to it
 	throws_consumed.clear()
 
 # Currently if someone gets caught in a tech crossfire, they just get teched too
@@ -657,18 +679,11 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 		else :
 			p2_throwing = true
 
-
-
-
 	if p2_hit_by:
 		if not (p2_hit_by is ThrowBox):
 			p2_hit = true
 		else :
 			p1_throwing = true
-
-
-
-
 
 	var clash_position = Vector2()
 	var clashed = false
@@ -685,6 +700,7 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 				if not p2_hitbox.can_clash:
 					continue
 				var valid_clash = false
+
 
 
 				if self.asymmetrical_clashing:
@@ -732,15 +748,23 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 				else :
 					p2_hit = false
 
+	# REVIEW: Make sure this new system isn't gonna merc anything.
+	#var players_hittable = true
+
 	if not p2_hit and not p1_hit:
 		if p2_throwing and p1_throwing and px1.current_state().throw_techable and px2.current_state().throw_techable:
 				#px1.state_machine.queue_state("ThrowTech")
 				#px2.state_machine.queue_state("ThrowTech")
 				consume_throw_by(px1, px2, true)
 				consume_throw_by(px2, px1, true)
+				#players_hittable = false
+				players_hittable_dic[px1] = false
+				players_hittable_dic[px2] = false
 
 		elif p2_throwing and p1_throwing and not px1.current_state().throw_techable and not px2.current_state().throw_techable:
-			return
+			#players_hittable = false
+			players_hittable_dic[px1] = false
+			players_hittable_dic[px2] = false
 
 		elif p1_throwing:
 			if px1.current_state().throw_techable and px2.current_state().throw_techable:
@@ -748,11 +772,16 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 				#px2.state_machine.queue_state("ThrowTech")
 				consume_throw_by(px1, px2, true)
 				consume_throw_by(px2, px1, true)
-				return
+				#players_hittable = false
+				players_hittable_dic[px1] = false
+				players_hittable_dic[px2] = false
+
 			var can_hit = true
 			if px2.is_grounded() and not p2_hit_by.hits_vs_grounded:
 				can_hit = false
 			if not px2.is_grounded() and not p2_hit_by.hits_vs_aerial:
+				can_hit = false
+			if not MH_players_hittable(px1, px2):
 				can_hit = false
 
 
@@ -768,7 +797,9 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 					if p2_hit_by.throw_state.begins_with("MH_"):
 						return [px1, "MH_Grab"]
 				consume_throw_by(px1, px2, false)
-				return
+				#players_hittable = false
+				players_hittable_dic[px1] = false
+				players_hittable_dic[px2] = false
 
 		elif p2_throwing:
 			if px1.current_state().throw_techable and px2.current_state().throw_techable:
@@ -776,11 +807,15 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 				#px2.state_machine.queue_state("ThrowTech")
 				consume_throw_by(px1, px2, true)
 				consume_throw_by(px2, px1, true)
-				return
+				#players_hittable = false
+				players_hittable_dic[px1] = false
+				players_hittable_dic[px2] = false
 			var can_hit = true
 			if px1.is_grounded() and not p1_hit_by.hits_vs_grounded:
 				can_hit = false
 			if not px1.is_grounded() and not p1_hit_by.hits_vs_aerial:
+				can_hit = false
+			if not MH_players_hittable(px1, px2):
 				can_hit = false
 
 
@@ -796,11 +831,17 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 					if p1_hit_by.throw_state.begins_with("MH_"):
 						return [px2, "MH_Grab"]
 				consume_throw_by(px2, px1, false)
-				return
+				#players_hittable = false
+				players_hittable_dic[px1] = false
+				players_hittable_dic[px2] = false
 
 func apply_hitboxes_objects(players:Array):
+	# REVIEW - Literally everything here
 	var objects_to_hit = []
 	var objects_hit_each_other = false
+	var player_hit_object = false
+	var players_to_hit = []
+	var objects_hit_player = false
 
 	for object in self.objects:
 		if object.disabled:
@@ -815,74 +856,70 @@ func apply_hitboxes_objects(players:Array):
 			hitbox.update_position(o_pos.x, o_pos.y)
 
 		for p in players:
-			# This shoould always be the same as the player index
+			if !players_hittable_dic[p]:
+				continue
+			# This should always be the same as the player index
 			var index = p.id
 			var p_hit_by
 			if object.id == index and not object.damages_own_team:
 				continue
+
 			var can_be_hit_by_melee = object.get("can_be_hit_by_melee")
 
-
 			if p:
+				var obj_hit_by = get_colliding_hitbox(p.get_active_hitboxes(), object.hurtbox)
+				if obj_hit_by and (can_be_hit_by_melee or obj_hit_by.hitbox_type == Hitbox.HitboxType.Detect):
+					player_hit_object = true
+					objects_to_hit.append([obj_hit_by, object])
+
 				if p.projectile_invulnerable and object.get("immunity_susceptible"):
 					continue
+
 				var hitboxes = object.get_active_hitboxes()
 				p_hit_by = get_colliding_hitbox(hitboxes, p.hurtbox)
 				if p_hit_by:
-					if p_hit_by.throw || p_hit_by is ThrowBox:
-						if !throws_consumed.has(p_hit_by.host):
-							MH_wrapped_hit(p_hit_by, p)
-							consume_throw_by(p_hit_by.host, p, false)
-					else:
-						MH_wrapped_hit(p_hit_by, p)
+					players_to_hit.append([p_hit_by, p])
+					objects_hit_player = true
 
-				var obj_hit_by = get_colliding_hitbox(p.get_active_hitboxes(), object.hurtbox)
-				if obj_hit_by and can_be_hit_by_melee:
-					if obj_hit_by.throw || obj_hit_by is ThrowBox:
-						if throws_consumed[p] == null:
-							MH_wrapped_hit(obj_hit_by, object)
-							throws_consumed[object] = p
-					else:
-						MH_wrapped_hit(obj_hit_by, object)
+		# REVIEW: Make sure this works properly
+		var opp_objects = []
 
+		for opp_object in self.objects:
+			if opp_object.disabled:
+				continue
+			if opp_object.id != object.id:
+				opp_objects.append(opp_object)
 
+		if not object.projectile_immune:
+			for opp_object in opp_objects:
+				var obj_hit_by
+				var obj_hitboxes = opp_object.get_active_hitboxes()
+				obj_hit_by = get_colliding_hitbox(obj_hitboxes, object.hurtbox)
+				if obj_hit_by:
+					objects_hit_each_other = true
+					objects_to_hit.append([obj_hit_by, object])
 
-
-
-
-
-
-
-
-
-
-
-			# TODO - Figure this out
-			var opp_objects = []
-			var opp_id = (object.id % 2) + 1
-
-			for opp_object in self.objects:
-				if opp_object.id == opp_id:
-					opp_objects.append(opp_object)
-
-			if not object.projectile_immune:
-				for opp_object in opp_objects:
-					var obj_hit_by
-					var obj_hitboxes = opp_object.get_active_hitboxes()
-					obj_hit_by = get_colliding_hitbox(obj_hitboxes, object.hurtbox)
-					if obj_hit_by:
-						objects_hit_each_other = true
-						objects_to_hit.append([obj_hit_by, object])
-
-	if objects_hit_each_other:
+	if objects_hit_each_other or player_hit_object:
 		for pair in objects_to_hit:
 			var hitbox = pair[0]
 			var target = pair[1]
+			var host = hitbox.host
 			if hitbox.throw || hitbox is ThrowBox:
-				if throws_consumed.has(hitbox.host):
-					continue
-				throws_consumed[hitbox.host] = target
-			MH_wrapped_hit(hitbox, target)
+				if !throws_consumed[host] || throws_consumed[host] == null:
+					MH_wrapped_hit(hitbox, target)
+					# I'm genuinely not even sure what or how to handle this
+			else:
+				MH_wrapped_hit(hitbox, target)
+		for pair in players_to_hit:
+			var hitbox = pair[0]
+			var target = pair[1]
+			var host = hitbox.host
+			if hitbox.throw || hitbox is ThrowBox:
+				if !throws_consumed.has(host) || throws_consumed[host] == null:
+					MH_wrapped_hit(hitbox, target)
+					consume_throw_by(host, target, false)
+			else:
+				MH_wrapped_hit(hitbox, target)
 
 func MH_wrapped_hit(hitbox, target):
 	var host = hitbox.host
@@ -899,6 +936,9 @@ func MH_wrapped_hit(hitbox, target):
 		print_debug("MultiHustle: Couldn't set opponent for hitbox")
 		result = hitbox.hit(target)
 	return result
+
+func MH_players_hittable(px1, px2):
+	return players_hittable_dic[px1] && players_hittable_dic[px2]
 
 func is_waiting_on_player():
 	set_vanilla_game_started(true)
@@ -994,12 +1034,35 @@ func process_tick():
 			ReplayManager.frames.finished = false
 			self.game_paused = true
 			var someones_turn = false
-
+			var triggered_inturrupts = {}
+			for player in players.values():
+				triggered_inturrupts[player] = false
 			for index in players.keys():
-				var player = players[index]
-				if player.state_interruptable and !player_turns[index]:
-					someones_turn = true # Keep an eye on this
-					break
+				var p1 = players[index]
+				if players[index].state_interruptable and not player_turns[index]:
+					for index2 in players.keys():
+						var p2 = players[index]
+						p2.busy_interrupt = ( not p2.state_interruptable and not (p2.current_state().interruptible_on_opponent_turn or p2.feinting or negative_on_hit(p2)))
+						if not p2.busy_interrupt:
+							if !triggered_inturrupts[p2]:
+								p2.current_state().on_interrupt()
+								triggered_inturrupts[p2] = true
+						p2.state_interruptable = true
+					p1.show_you_label()
+					player_turns[index] = true
+					match index:
+						1:
+							self.p1_turn = true
+						2:
+							self.p2_turn = true
+
+
+					if singleplayer:
+						emit_signal("player_actionable")
+					elif not is_ghost:
+						someones_turn = true
+					player_actionable = true
+
 			if someones_turn:
 				for index in players.keys():
 					var player = players[index]
@@ -1088,6 +1151,20 @@ func _process(delta):
 
 	self.camera_snap_position = self.camera.position
 
+	if is_ghost and Global.ghost_speed > 2:
+		var current_time = Time.get_unix_time_from_system()
+		var ghost_delta = current_time - ghost_time
+		var fps = 60
+		var fixed_delta = 1.0 / fps
+		var min_delta = fixed_delta * (1.0 / Global.get_ghost_speed_modifier())
+		if ghost_delta >= min_delta:
+			ghost_time = current_time
+			if ghost_actionable_freeze_ticks > 0:
+				pass
+			else :
+				for i in range(floor(ghost_delta / min_delta)):
+					call_deferred("ghost_tick")
+
 	set_vanilla_game_started(false)
 
 func _physics_process(_delta):
@@ -1125,7 +1202,7 @@ func _physics_process(_delta):
 			self.ghost_actionable_freeze_ticks -= 1
 			if self.ghost_actionable_freeze_ticks == 0:
 				emit_signal("make_afterimage")
-		else :
+		elif Global.ghost_speed <= 2:
 			call_deferred("ghost_tick")
 
 	self.super_active = self.super_freeze_ticks > 0
@@ -1193,26 +1270,37 @@ func ghost_tick():
 	if self.ghost_speed == 1:
 		simulate_frames = 1 if self.ghost_tick % 4 == 0 else 0
 	self.ghost_tick += 1
-	var ghost_advantage_tick = self.ghost_tick
-	var ghost_multiplier = 1
-	if self.ghost_speed == 1:
-		ghost_multiplier = 4
-	ghost_advantage_tick /= ghost_multiplier
 
+
+
+
+
+
+	p1.grounded_indicator.hide()
+	p2.grounded_indicator.hide()
 	for i in range(simulate_frames):
 		if self.ghost_actionable_freeze_ticks == 0:
+			ghost_simulated_ticks += 1
 			simulate_one_tick()
-		if self.current_tick > 90:
+		if self.current_tick > GHOST_FRAMES:
 			emit_signal("ghost_finished")
 
 		# REVIEW - This could probably be optimized
 		for index in players.keys():
 			var p1 = players[index]
+			if p1.ghost_blocked_melee_attack > 0 and not p1.block_frame_label.visible:
+				p1.block_frame_label.show()
+				p1.block_frame_label.text = "Parry %s @ %sf" % [p1.ghost_wrong_block, p1.ghost_blocked_melee_attack]
+
+			var p1_tick = ghost_simulated_ticks + (p1.hitlag_ticks if not is_other_ghost_actionable(index) else 0)
 			if (p1.state_interruptable or p1.dummy_interruptable or p1.state_hit_cancellable) and not ghost_player_actionables[index]:
-				player_ghost_ready_tick[index] = ghost_advantage_tick + (p1.hitlag_ticks * ghost_multiplier if not is_other_ghost_actionable(index) else 0)
+				player_ghost_ready_tick[index] = p1_tick
 			else :
 				player_ghost_ready_tick[index] = null
-			if (self.ghost_tick / ghost_multiplier == player_ghost_ready_tick[index]):
+			if p1.ghost_got_hit and not p1.hit_frame_label.visible:
+				p1.hit_frame_label.show()
+				p1.hit_frame_label.text = "Hit @ %sf" % p1.turn_frames
+			if (ghost_simulated_ticks == player_ghost_ready_tick[index]):
 				p1.ghost_ready_tick = player_ghost_ready_tick[index]
 				player_ghost_ready_tick[index] = null
 				ghost_player_actionables[index] = true
@@ -1229,13 +1317,20 @@ func ghost_tick():
 				if not p1.actionable_label.visible:
 					p1.actionable_label.show()
 					p1.actionable_label.text = "Ready\nin %sf" % p1.turn_frames
+					p1.grounded_indicator.visible = p1.is_grounded() and p1.ghost_was_in_air
+
 				emit_signal("ghost_my_turn")
 				for index2 in players.keys():
 					var p2 = players[index2]
-					if p2.current_state().interruptible_on_opponent_turn or p2.feinting or .negative_on_hit(p2):
+					if p2.current_state().interruptible_on_opponent_turn or p2.feinting or negative_on_hit(p2):
 						if not p2.actionable_label.visible:
 							p2.actionable_label.show()
-							p2.actionable_label.text = "Ready\nin %sf" % p2.turn_frames
+							if p2.current_state().anim_length == p2.current_state().current_tick + 1 or p2.current_state().iasa_at == p2.current_state().current_tick:
+								p2.actionable_label.text = "Ready\nin %sf" % p2.turn_frames
+							else :
+								p2.actionable_label.text = "Interrupt\nin %sf" % p2.turn_frames
+
+							p2.grounded_indicator.visible = p2.is_grounded() and p2.ghost_was_in_air
 						ghost_player_actionables[index2] = true
 						match(index2):
 							1:

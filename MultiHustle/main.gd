@@ -14,7 +14,7 @@ func _ready():
 
 func setup_game_deferred(singleplayer, data):
 	game = preload("res://Game.tscn").instance()
-	Network.ensure_script_override(game)
+	_Global.ensure_script_override(game)
 	#game.set_script(load("res://game.gd"))
 
 	game_layer.add_child(game)
@@ -28,17 +28,12 @@ func setup_game_deferred(singleplayer, data):
 
 	Network.game = game
 
-	# This fallback will be removed next major game update
 	var user_data
 	var has_data = true
 	if not data.has("user_data"):
 		has_data = false
 		user_data = {}
 		data["user_data"] = user_data
-	# This is the fallback
-	if len(data["user_data"].keys()) <= 0:
-		has_data = false
-		user_data = data.user_data
 	if not has_data:
 		if Network.multiplayer_active:
 			for index in data.selected_characters.keys():
@@ -48,6 +43,7 @@ func setup_game_deferred(singleplayer, data):
 				# Removed the normal username use because... why?
 				var name = data.selected_characters[index]["name"]
 				# This is a handler for char_loader names
+				# There is an official one now, but I'll continue to use this for now
 				var customPos = name.find("__")
 				if customPos >= 0:
 					name.erase(0, customPos+2)
@@ -115,6 +111,10 @@ func _start_ghost():
 		ghost_game.needs_refresh = false
 
 func _start_ghost_internal(isRefresh = true):
+	if started_ghost_this_frame:
+		return
+	started_ghost_this_frame = true
+
 	if not $"%GhostWaitTimer".is_stopped():
 		yield ($"%GhostWaitTimer", "timeout")
 		return
@@ -138,7 +138,7 @@ func _start_ghost_internal(isRefresh = true):
 
 	if !isRefresh:
 		ghost_game = preload("res://Game.tscn").instance()
-		Network.ensure_script_override(ghost_game)
+		_Global.ensure_script_override(ghost_game)
 		#ghost_game.set_script(load("res://game.gd"))
 		ghost_game.is_ghost = true
 		$"%GhostViewport".add_child(ghost_game)
@@ -192,7 +192,7 @@ func MultiHustle_AddData():
 	var uiselectors = multiHustle_UISelectors.instance()
 	ui_layer.add_child(uiselectors)
 	ui_layer.multiHustle_UISelectors = uiselectors
-	var button_manager = Network.multihustle_action_button_manager
+	var button_manager = _Global.multihustle_action_button_manager
 	button_manager.main = self
 	button_manager.owner = owner
 	#button_manager.action_buttons_left[1] = $"%P1ActionButtons"
@@ -222,7 +222,7 @@ func stop_ghost():
 # Character Loader Overrides
 
 func _on_loaded_replay(match_data):
-	if !Network.has_char_loader():
+	if !_Global.has_char_loader():
 		._on_loaded_replay(match_data)
 		return
 	load_replay_chars(match_data)
@@ -230,7 +230,7 @@ func _on_loaded_replay(match_data):
 	_on_match_ready(match_data)
 
 func _on_received_spectator_match_data(data):
-	if !Network.has_char_loader():
+	if !_Global.has_char_loader():
 		_on_received_spectator_match_data(data)
 		return
 	get_node("/root/SteamLobby/LoadingSpectator/Label").text = "Spectating...\n(Loading Characters, this may take a while)"
@@ -243,4 +243,4 @@ func load_replay_chars(match_data):
 	for index in match_data.selected_characters.keys():
 		char_names.append(match_data.selected_characters[index]["name"])
 	# The original gives match data... and does nothing with it
-	Network.css_instance.net_loadReplayChars([char_names])
+	_Global.css_instance.net_loadReplayChars([char_names])

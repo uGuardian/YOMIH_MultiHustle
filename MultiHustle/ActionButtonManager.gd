@@ -171,7 +171,8 @@ func get_custom_data(obj)->Dictionary:
 		"rect_position":obj.rect_position,
 		"rect_size":obj.rect_size,
 		"rect_min_size":obj.rect_min_size,
-		"size_flags_horizontal":obj.size_flags_horizontal
+		"size_flags_horizontal":obj.size_flags_horizontal,
+		"opponent_action_buttons_path":obj.opponent_action_buttons_path
 	}
 
 func set_custom_data(obj, dic:Dictionary):
@@ -186,4 +187,5 @@ func set_custom_data(obj, dic:Dictionary):
 	obj.rect_size = dic["rect_size"]
 	obj.rect_min_size = dic["rect_min_size"]
 	obj.size_flags_horizontal = dic["size_flags_horizontal"]
+	obj.opponent_action_buttons_path = dic["opponent_action_buttons_path"]
 	return dic["owner"]

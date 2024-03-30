@@ -26,9 +26,12 @@ func _init(modLoader = ModLoader):
 	#modLoader.installScriptExtension("res://MultiHustle/ui/SteamLobby/LobbyUser.gd")
 	#modLoader.installScriptExtension("res://MultiHustle/ui/SteamLobby/SteamLobby.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ui/UILayer.gd")
+	modLoader.installScriptExtension("res://MultiHustle/ui/Chat.gd")
 	installExtension("res://MultiHustle/Network.gd")
+	ensure_script_override(Network)
 	modLoader.installScriptExtension("res://MultiHustle/game.gd")
 	modLoader.installScriptExtension("res://MultiHustle/ReplayManager.gd")
+	ensure_script_override(ReplayManager)
 	modLoader.installScriptExtension("res://MultiHustle/main.gd")
 	#modLoader.installScriptExtension("res://MultiHustle/SteamLobby.gd")
 
@@ -58,3 +61,12 @@ func override_scene_script(scene_path):
 	ModLoader.saveScene(scene, scene_path)
 	scene.queue_free()
 """
+
+func ensure_script_override(object):
+	#var property_list = object.get_property_list()
+	#var properties = {}
+	#for property in property_list:
+	#	properties[property.name] = object.get(property.name)
+	object.set_script(load(object.get_script().resource_path))
+	#for property in properties.keys():
+	#	object.set(property, properties[property])

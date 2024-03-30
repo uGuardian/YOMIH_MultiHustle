@@ -17,6 +17,7 @@ func GetRealID():
 
 func create_category(category, category_int = - 1):
 	var scene = BUTTON_CATEGORY_CONTAINER_SCENE.instance()
+	scene.fighter = fighter
 	button_category_containers[category] = scene
 	scene.category_int = category_int
 	scene.show_behind_parent = true
@@ -79,6 +80,8 @@ func activate(refresh = true):
 		$"%LastMoveLabel".text = last_action.title if last_action.title else last_action.name
 		$"%LastMoveTexture".visible = not last_action.is_hurt_state
 		$"%LastMoveLabel".visible = not last_action.is_hurt_state
+		$"%LastMoveData".visible = not last_action.is_hurt_state
+		$"%LastMoveData".text = last_action.get_last_action_text()
 
 	var user_facing = game.singleplayer or Network.player_id == GetRealID()
 	if Network.multiplayer_active:
