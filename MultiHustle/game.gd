@@ -755,7 +755,7 @@ func apply_hitboxes_internal(playerhitboxpair:Array):
 					px1.state_machine.queue_state(p2_hit_by.throw_state)
 					# NOTE - This allows for a character to have special MultiHustle grab handling
 					if p2_hit_by.throw_state.begins_with("MH_"):
-						return
+						return [px1, "MH_Grab"]
 				consume_throw_by(px1, px2, false)
 				return
 
