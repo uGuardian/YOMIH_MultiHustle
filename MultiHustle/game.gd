@@ -910,6 +910,7 @@ func apply_hitboxes_objects(players:Array):
 					# I'm genuinely not even sure what or how to handle this
 			else:
 				MH_wrapped_hit(hitbox, target)
+	if objects_hit_player:
 		for pair in players_to_hit:
 			var hitbox = pair[0]
 			var target = pair[1]
