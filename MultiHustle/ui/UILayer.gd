@@ -45,7 +45,7 @@ func sync_timer(player_id):
 func id_to_action_buttons(player_id):
 	if multiHustle_UISelectors.selects[1][0].activeCharIndex == player_id:
 		return $"%P1ActionButtons"
-	if multiHustle_UISelectors.selects[1][0].activeCharIndex == player_id:
+	if multiHustle_UISelectors.selects[2][0].activeCharIndex == player_id:
 		return $"%P2ActionButtons"
 	# Emergency Fallback
 	if player_id == 1:
