@@ -33,9 +33,9 @@ func init(singleplayer = true):
 func _ready():
 	$"%P1Display".connect("style_selected", self, "_on_style_selected", [1])
 	$"%P2Display".connect("style_selected", self, "_on_style_selected", [2])
-	
+
 	var btn_height = 160 if Network.has_char_loader() else 240
-	
+
 	prev_char_button = Button.new()
 	prev_char_button.text = "<"
 	prev_char_button.rect_position = Vector2(60, btn_height)
@@ -43,7 +43,7 @@ func _ready():
 	prev_char_button.connect("pressed", self, "_update_viewing_char", [-1])
 	add_child(prev_char_button)
 	prev_char_button.hide()
-	
+
 	next_char_button = Button.new()
 	next_char_button.text = ">"
 	next_char_button.rect_position = Vector2(111, btn_height)
@@ -105,9 +105,9 @@ func get_match_data():
 			var style = null if not real_selected_styles.has(index) else real_selected_styles[index]
 			selected_styles[index] = style
 	var data = {
-		"singleplayer":singleplayer, 
-		"selected_characters":selected_characters, 
-		"selected_styles":selected_styles, 
+		"singleplayer":singleplayer,
+		"selected_characters":selected_characters,
+		"selected_styles":selected_styles,
 	}
 	if singleplayer or Network.is_host():
 		randomize()
@@ -117,17 +117,6 @@ func get_match_data():
 	else :
 		data.merge($"%GameSettingsPanelContainer".get_data())
 	return data
-
-onready var mhVersion = ModLoader._readMetadata("res://MultiHustle/_metadata")["version"]
-
-func _process(delta):
-	# new version code thing, handled this way because of char_loader
-	var clVersion = get("clVersion")
-	if clVersion != null:
-		if not clVersion.match("*MH-*"):
-			set("clVersion", clVersion + " MH-" + mhVersion)
-	elif not Global.VERSION.match("*MH-*"):
-		Global.VERSION = Global.VERSION.split("Modded")[0] + "MH-" + mhVersion
 
 # Character Loader Overrides
 
@@ -141,12 +130,3 @@ func net_loadReplayChars(_replayChars):
 			if (isCustomChar(rc[idx])):
 				loadListChar(name_to_index[retro_charName(rc[idx])])
 		idx += 1
-
-func isCustomChar(_name):
-	return .isCustomChar(_name)
-
-func loadListChar(index, hideName = false):
-	return .loadListChar(index, hideName)
-
-func retro_charName(_name):
-	return .retro_charName(_name)

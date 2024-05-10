@@ -1,4 +1,4 @@
-extends "res://Network.gd"
+extends "res://cl_port/Network.gd"
 
 # This is a global variable for a manager
 var multihustle_action_button_manager
@@ -7,9 +7,6 @@ func _ready():
 	connect("player_list_changed", self, "dump_charloader_data_to_cache", [], CONNECT_DEFERRED)
 	multihustle_action_button_manager = preload("res://MultiHustle/ActionButtonManager.gd").new()
 	add_child(multihustle_action_button_manager)
-
-func is_modded():
-	return true
 
 # Util Functions
 
@@ -26,8 +23,9 @@ func get_all_pairs(list):
 			break
 	return result
 
+# Deprecated, base game always has it now.
 func has_char_loader()->bool:
-	return has_method("character_list")
+	return true
 
 func ensure_script_override(object):
 	#var property_list = object.get_property_list()

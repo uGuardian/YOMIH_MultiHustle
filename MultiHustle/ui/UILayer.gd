@@ -3,6 +3,8 @@ extends "res://ui/UILayer.gd"
 var multiHustle_UISelectors
 var spacebar_handler
 
+var player_time_run_out:Dictionary = {}
+
 func _on_game_playback_requested():
 	if Network.multiplayer_active and not ReplayManager.resimulating:
 		$PostGameButtons.show()
@@ -16,6 +18,8 @@ func init(game):
 	turns_taken = {}
 	for index in game.players.keys():
 		turns_taken[index] = false
+		# TODO - Implement this
+		player_time_run_out[index] = false
 	game.turns_taken = turns_taken
 	if !is_instance_valid(spacebar_handler):
 		spacebar_handler = preload("res://MultiHustle/SpacebarControl.gd").new()
@@ -41,7 +45,7 @@ func sync_timer(player_id):
 func id_to_action_buttons(player_id):
 	if multiHustle_UISelectors.selects[1][0].activeCharIndex == player_id:
 		return $"%P1ActionButtons"
-	if multiHustle_UISelectors.selects[1][0].activeCharIndex == player_id:
+	if multiHustle_UISelectors.selects[2][0].activeCharIndex == player_id:
 		return $"%P2ActionButtons"
 	# Emergency Fallback
 	if player_id == 1:
