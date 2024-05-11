@@ -615,8 +615,8 @@ class Footprint:
 	var box_arr:Array
 	var aabb_arr:Array
 
-	# Shaped Hitboxes Support
-	var is_shaped
+	var unknown_footprint = false
+	var needs_refresh = false
 
 	func _init(x1, x2, y1, y2):
 		self.x1 = x1
@@ -628,6 +628,9 @@ class Footprint:
 
 	static func get_collision_footprint_from_obj(obj:BaseObj)->Footprint:
 		var arr:Array = obj.get_active_hitboxes()
+		var pos = obj.get_pos()
+		for hitbox in arr:
+			hitbox.update_position(pos.x, pos.y)
 		if obj.collision_box:
 			arr.append(obj.collision_box)
 		if obj.hurtbox:
@@ -643,20 +646,30 @@ class Footprint:
 			aabbs[index] = arr[index].get_aabb()
 		var footprint = get_collision_footprint_from_aabb_dic_arr(aabbs)
 		footprint.box_arr = arr
-		footprint.aabb_arr = aabbs
 		return footprint
 
 	static func get_collision_footprint_from_aabb_dic_arr(aabbs:Array)->Footprint:
-		var is_shaped
+		var unknown_footprint = false
 		var x1:int = 0
 		var x2:int = 0
 		var y1:int = 0
 		var y2:int = 0
 		for aabb in aabbs:
-			if aabb is Dictionary:
-				if aabb["radius"]:
-					# Shaped Hitbox
-					is_shaped = true
+			if !aabb: # Swept Hitbox
+				# TODO - Implement Swept Hitboxes
+				unknown_footprint = true
+				break
+			elif aabb is Array: # Normal Hitbox
+				if aabb[0] < x1:
+					x1 = aabb[0]
+				if aabb[0] > x2:
+					x2 = aabb[0]
+				if aabb[0] < y1:
+					y1 = aabb[0]
+				if aabb[0] > y2:
+					y2 = aabb[0]
+			elif aabb is Dictionary:
+				if aabb["radius"]: # Shaped Hitbox
 					var radius = aabb["radius"]
 					var center:Vector2 = aabb["center"]
 					var t_x1 = center.x - radius - 1
@@ -671,7 +684,7 @@ class Footprint:
 						y1 = t_y1
 					if t_y2 > y2:
 						y2 = t_y2
-				else:
+				else: # Normal Hitbox
 					if aabb["x1"] < x1:
 						x1 = aabb["x1"]
 					if aabb["x2"] > x2:
@@ -680,30 +693,35 @@ class Footprint:
 						y1 = aabb["y1"]
 					if aabb["y2"] > y2:
 						y2 = aabb["y2"]
-			elif aabb is PoolVector2Array:
-				# Shaped Hitbox
-				is_shaped = true
-			elif aabb is Array:
-				is_shaped = false
-				if aabb[0] < x1:
-					x1 = aabb[0]
-				if aabb[0] > x2:
-					x2 = aabb[0]
-				if aabb[0] < y1:
-					y1 = aabb[0]
-				if aabb[0] > y2:
-					y2 = aabb[0]
-		return Footprint.new(x1, x2, y1, y2)
+			elif aabb is PoolVector2Array: # Shaped Hitbox
+				# TODO - Implement PoolVector2Array Shaped Hitbox
+				unknown_footprint = true
+				break
+			else:
+				unknown_footprint = true
+				break
+		if unknown_footprint:
+			x1 = 0
+			x2 = 0
+			y1 = 0
+			y2 = 0
+		var footprint = Footprint.new(x1, x2, y1, y2)
+		footprint.aabb_arr = aabbs
+		footprint.unknown_footprint = unknown_footprint
+		return footprint
 
 	func overlaps(box:Footprint):
+		if unknown_footprint || box.unknown_footprint:
+			return true
 		if width == 0 and height == 0:
 			return false
 		if box.width == 0 and box.height == 0:
 			return false
-		if !box.is_shaped:
-			return not (x1 > box.x2 or x2 < box.x1 or y1 > box.y2 or y2 < box.y1)
-		else:
-			return false
+		return not (x1 > box.x2 or x2 < box.x1 or y1 > box.y2 or y2 < box.y1)
+
+	func refresh():
+		# TODO
+		pass
 
 func apply_hitboxes(players):
 	set_vanilla_game_started(true)
@@ -721,8 +739,7 @@ func apply_hitboxes(players):
 	# TODO - Prioritize overlaps to selected opponent
 	# TODO - Prioritize throw techs in consumption
 	for footprint_pair in get_all_pairs(player_footprints):
-		if (footprint_pair[0].collides(footprint_pair[1])):
-			apply_hitboxes_internal(footprint_pair)
+		apply_hitboxes_internal(footprint_pair)
 	apply_hitboxes_objects(player_footprints)
 
 	"""
@@ -753,22 +770,17 @@ func consume_throw_propagate(throwee):
 		consume_throw_propagate(throwee_target)
 
 # throws_consumed is handled by instance, but may be passed by reference in the future
-func apply_hitboxes_internal(playerhitboxpair:Array):
+func apply_hitboxes_internal(player_footprint_pair:Array):
 	var footprint1:Footprint = player_footprint_pair[0]
 	var footprint2:Footprint = player_footprint_pair[1]
-	var px1 = pair1[0]
-	var px2 = pair2[0]
+	# NOTE - The double check is just in case a modder does something... funky
+	if !footprint1.collides(footprint2) && !footprint2.collides(footprint1):
+		return
+	var px1 = footprint1.obj
+	var px2 = footprint2.obj
 
 	var p1_hitboxes = footprint1.box_arr
 	var p2_hitboxes = footprint2.box_arr
-
-	var p1_pos = px1.get_pos()
-	var p2_pos = px2.get_pos()
-
-	for hitbox in p1_hitboxes:
-		hitbox.update_position(p1_pos.x, p1_pos.y)
-	for hitbox in p2_hitboxes:
-		hitbox.update_position(p2_pos.x, p2_pos.y)
 
 	var p2_hit_by = get_colliding_hitbox(p1_hitboxes, px2.hurtbox) if not px2.invulnerable else null
 	var p1_hit_by = get_colliding_hitbox(p2_hitboxes, px1.hurtbox) if not px1.invulnerable else null
@@ -953,15 +965,7 @@ func apply_hitboxes_objects(player_footprints:Array):
 		var object = self.objects[index]
 		if object.disabled:
 			continue
-		object_footprints[index] = Footprint.get_collision_footprint_from_obj(self.objects[index])
-
-		var o_hitboxes = object.get_active_hitboxes()
-
-		var o_pos = object.get_pos()
-
-		# REVIEW - Ensure footprints follow updated boxes
-		for hitbox in o_hitboxes:
-			hitbox.update_position(o_pos.x, o_pos.y)
+		object_footprints[index] = Footprint.get_collision_footprint_from_obj(object)
 
 	for footprint in object_footprints:
 		if not footprint:
@@ -969,42 +973,44 @@ func apply_hitboxes_objects(player_footprints:Array):
 		var object = footprint.obj
 		for player_footprint in player_footprints:
 			var p = player_footprint.obj
-			# This should always be the same as the player index
-			var index = p.id
 			var p_hit_by
-			if object.id == index and not object.damages_own_team:
-				continue
+			if p: # Moved this check up to prevent potential errors
+				var index = p.id # This should always be the same as the player index
+				if object.id == index and not object.damages_own_team:
+					continue
 
-			var can_be_hit_by_melee = object.get("can_be_hit_by_melee")
+				var can_be_hit_by_melee = object.get("can_be_hit_by_melee")
 
-			if p:
-				var obj_hit_by = get_colliding_hitbox(p.get_active_hitboxes(), object.hurtbox)
-				if obj_hit_by and (can_be_hit_by_melee or obj_hit_by.hitbox_type == Hitbox.HitboxType.Detect):
-					player_hit_object = true
-					objects_to_hit.append([obj_hit_by, object])
+				if player_footprint.overlaps(footprint):
+					var obj_hit_by = get_colliding_hitbox(player_footprint.box_arr, object.hurtbox)
+					if obj_hit_by and (can_be_hit_by_melee or obj_hit_by.hitbox_type == Hitbox.HitboxType.Detect):
+						player_hit_object = true
+						objects_to_hit.append([obj_hit_by, object])
 
 				if p.projectile_invulnerable and object.get("immunity_susceptible"):
 					continue
-				if not footprint.collides(player_footprint):
-					continue
-				p_hit_by = get_colliding_hitbox(footprint.box_arr, p.hurtbox)
-				if p_hit_by:
-					players_to_hit.append([p_hit_by, p])
-					objects_hit_player = true
+				if footprint.overlaps(player_footprint):
+					p_hit_by = get_colliding_hitbox(footprint.box_arr, p.hurtbox)
+					if p_hit_by:
+						players_to_hit.append([p_hit_by, p])
+						objects_hit_player = true
 
 		# REVIEW: Make sure this works properly
-		var opp_objects = []
+		var opp_footprints = []
 
-		for opp_object in self.objects:
+		for opp_footprint in object_footprints:
+			var opp_object = object_footprints.obj
 			if opp_object.disabled:
 				continue
 			if opp_object.id != object.id:
-				opp_objects.append(opp_object)
+				opp_footprints.append(opp_footprint)
 
 		if not object.projectile_immune:
-			for opp_object in opp_objects:
+			for opp_footprint in opp_footprints:
 				var obj_hit_by
-				var obj_hitboxes = opp_object.get_active_hitboxes()
+				var obj_hitboxes = opp_footprint.box_arr
+				if !opp_footprint.overlaps(footprint):
+					continue
 				obj_hit_by = get_colliding_hitbox(obj_hitboxes, object.hurtbox)
 				if obj_hit_by:
 					objects_hit_each_other = true
@@ -1042,7 +1048,7 @@ func MH_wrapped_hit(hitbox, target):
 			target.opponent = host
 		elif host.fighter_owner:
 			target.opponent = host.fighter_owner
-		elif host.creator:
+		elif host.creator is Fighter:
 			target.opponent = host.creator
 		result = hitbox.hit(target)
 		target.opponent = opponentTemp
