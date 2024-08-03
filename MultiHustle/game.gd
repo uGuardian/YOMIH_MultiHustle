@@ -1035,21 +1035,20 @@ func process_tick():
 			ReplayManager.frames.finished = false
 			self.game_paused = true
 			var someones_turn = false
-			var triggered_inturrupts = {}
-			for player in players.values():
-				triggered_inturrupts[player] = false
+			var turn_trigger = false
 			for index in players.keys():
-				var p1 = players[index]
-				if players[index].state_interruptable and not player_turns[index]:
-					for index2 in players.keys():
-						var p2 = players[index]
-						p2.busy_interrupt = ( not p2.state_interruptable and not (p2.current_state().interruptible_on_opponent_turn or p2.feinting or negative_on_hit(p2)))
-						if not p2.busy_interrupt:
-							if !triggered_inturrupts[p2]:
-								p2.current_state().on_interrupt()
-								triggered_inturrupts[p2] = true
-						p2.state_interruptable = true
-					p1.show_you_label()
+				var player = players[index]
+				if player.state_interruptable && !player_turns[index]:
+					turn_trigger = true
+					break
+			if turn_trigger:
+				for index in players.keys():
+					var player = players[index]
+					player.busy_interrupt = ( not player.state_interruptable and not (player.current_state().interruptible_on_opponent_turn or player.feinting or negative_on_hit(player)))
+					if not player.busy_interrupt:
+						player.current_state().on_interrupt()
+					player.state_interruptable = true
+					player.show_you_label()
 					player_turns[index] = true
 					match index:
 						1:
@@ -1057,24 +1056,11 @@ func process_tick():
 						2:
 							self.p2_turn = true
 
-
-					if singleplayer:
-						emit_signal("player_actionable")
-					elif not is_ghost:
-						someones_turn = true
-					player_actionable = true
-
-			if someones_turn:
-				for index in players.keys():
-					var player = players[index]
-					if player.state_interruptable and !player_turns[index]:
-						player.show_you_label()
-						player_turns[index] = true
-					else:
-						player.busy_interrupt = ( not player.state_interruptable and not (player.current_state().interruptible_on_opponent_turn or player.feinting or negative_on_hit(player)))
-						player.state_interruptable = true
 				if singleplayer:
 					emit_signal("player_actionable")
+				elif not is_ghost:
+					someones_turn = true
+				player_actionable = true
 
 			if someones_turn:
 				ReplayManager.replaying_ingame = false
